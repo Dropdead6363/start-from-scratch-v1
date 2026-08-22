@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Start From Scratch v0.3.2</title>
+<style>
+html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#171717;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;touch-action:none}
+#game{width:100vw;height:100vh;display:block;background:#78964f}
+#hud{position:fixed;left:0;top:0;width:100%;box-sizing:border-box;padding:9px 11px;color:#fff;background:rgba(0,0,0,.48);font-size:13px;display:flex;justify-content:space-between;z-index:10;pointer-events:none}
+#prompt{position:fixed;left:50%;bottom:128px;transform:translateX(-50%);color:#fff;background:rgba(0,0,0,.7);padding:8px 12px;border-radius:10px;display:none;z-index:12;font-size:14px;white-space:nowrap}
+#stickBase{position:fixed;left:18px;bottom:18px;width:92px;height:92px;border-radius:50%;background:rgba(255,255,255,.14);border:2px solid rgba(255,255,255,.28);z-index:20}
+#stickKnob{position:absolute;left:28px;top:28px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.5)}
+#actionBtn{position:fixed;right:18px;bottom:24px;width:88px;height:58px;border:0;border-radius:18px;background:rgba(255,255,255,.88);font-size:16px;font-weight:800;z-index:20}
+#tools{position:fixed;left:122px;right:118px;bottom:22px;display:flex;gap:7px;justify-content:center;z-index:20}
+.toolBtn{display:none;min-width:72px;height:52px;border:0;border-radius:14px;background:rgba(30,30,30,.8);color:#fff;font-size:12px;font-weight:700}
+.toolBtn.active{outline:3px solid #f2d35f;background:rgba(55,55,55,.95)}
+.panel{position:fixed;inset:7% 5%;background:rgba(246,241,226,.99);color:#26231f;border-radius:16px;padding:18px;box-sizing:border-box;z-index:30;display:none;overflow:auto;box-shadow:0 12px 30px rgba(0,0,0,.4)}
+.panel h2{margin:0 0 12px}.panel p{line-height:1.35}
+.panel button{width:100%;padding:12px;margin-top:9px;border:0;border-radius:10px;font-size:16px;background:#2f4b2b;color:white}
+.panel button.secondary{background:#5d5d5d}
+.shopItem{border:1px solid #c7bda4;border-radius:12px;padding:11px;margin:9px 0;background:#fffaf0}
+.shopRow{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.shopItem button{width:auto;min-width:92px;margin:0;padding:9px 12px}
+#buildTag{position:fixed;left:50%;top:5px;transform:translateX(-50%);z-index:11;color:rgba(255,255,255,.68);font-size:9px;pointer-events:none}#testTime{position:fixed;right:8px;top:58px;display:flex;gap:4px;z-index:21}#testTime button{font-size:10px;padding:5px 7px;border:0;border-radius:7px;background:rgba(0,0,0,.68);color:#fff}#toast{position:fixed;top:76px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.78);color:#fff;padding:9px 14px;border-radius:10px;display:none;z-index:40;font-size:14px}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="buildTag">BUILD 0.3.2</div>
+<div id="hud"><div>FEB 14 · 9:00 AM<br>WINTER · 35 DAYS TO SPRING</div><div id="rightHud" style="text-align:right">$1,500<br>Energy 100%</div></div>
+<div id="toast"></div><div id="prompt"></div><div id="testTime"><button onclick="advanceHours(1)">TEST +1H</button><button onclick="advanceHours(12)">+12H</button><button onclick="advanceHours(24)">+1D</button><button onclick="advanceHours(168)">+7D</button></div>
+<div id="stickBase"><div id="stickKnob"></div></div>
+<div id="tools"><button id="mowerBtn" class="toolBtn">MOWER</button><button id="axeBtn" class="toolBtn">AXE</button></div>
+<button id="actionBtn">ACT</button>
+
+<div id="letterPanel" class="panel"><h2>Letter from Grandfather</h2><p>You probably weren’t expecting this place, and I wasn’t expecting to leave it to you.</p><p>I bought these two acres intending to clean them up, fix the cabin, and build the farm out from here. I never got around to most of it.</p><p>You carry my name. That is about the only real connection I have left to this family, and I never knew you well enough to have bad memories of you. I know the others well enough that I don’t want them benefiting from something I bought.</p><p>The property, the truck, the buildings, and whatever is on the land are yours.</p><p>Before I died, I set up local store advertisements to come to this mailbox: the hunting and outdoor store, hardware store, grocery, feed store, equipment dealer, and nursery.</p><p>I’m dead. What you do with the place is your business.</p><button onclick="closePanels()">Close</button></div>
+
+<div id="truckPanel" class="panel"><h2>1995 F-250</h2><p>You are inside the truck. For this prototype, town travel is handled through a menu.</p><button onclick="driveToTown()">Drive to Town (1 hour)</button><button class="secondary" onclick="exitTruck()">Exit Truck</button></div>
+<div id="townPanel" class="panel"><h2>Town</h2><button onclick="openHardware()">Hardware Store</button><button class="secondary" onclick="closePanels()">Return to Property</button></div>
+<div id="hardwarePanel" class="panel"><h2>Local Hardware Store</h2>
+<div class="shopItem"><div class="shopRow"><div><b>Push Lawn Mower</b><br><small>Cuts grass while operating.</small></div><b>$250</b></div><button id="buyMower" onclick="buyTool('mower',250)">Buy</button></div>
+<div class="shopItem"><div class="shopRow"><div><b>Hand Axe</b><br><small>Slow manual tree removal.</small></div><b>$30</b></div><button id="buyAxe" onclick="buyTool('axe',30)">Buy</button></div>
+<p id="shopCash"></p><button class="secondary" onclick="openTown()">Back to Town</button></div>
+
+<script>
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+const TILE=16,world={w:295*TILE,h:295*TILE};
+const state={money:1500,energy:100,awakeHours:0,gameMinutes:9*60,gameDay:0,lastClockTick:performance.now(),owned:{mower:false,axe:false},equipped:null,mowerRunning:false,cutGrass:new Set(),removedTrees:new Set(),stumps:new Set(),inVehicle:false,doors:{cabin:false,barn:false,truck:false},grass:new Map(),env:new Map()};
+const player={x:16.5*TILE,y:279*TILE,size:TILE,speed:115,facing:{x:0,y:-1}};
+const mailbox={x:12.2*TILE,y:282.5*TILE};
+const truck={x:20.5*TILE,y:277*TILE,w:6.5*TILE,h:3*TILE};
+const cabin={x:75*TILE,y:75*TILE,w:20*TILE,h:20*TILE};
+const parking={cx:85*TILE,cy:110*TILE,r:10*TILE};
+const barn={x:100*TILE,y:100*TILE,w:30*TILE,h:20*TILE};
+const well={x:parking.cx,y:parking.cy,r:.75*TILE};
+const drivewayWidth=10*TILE;
+const startArea={x:13.5*TILE,y:275*TILE,w:11*TILE,h:12*TILE};
+const drivewayPoints=[[85*TILE,110*TILE],[85*TILE,130*TILE],[70*TILE,175*TILE],[50*TILE,225*TILE],[30*TILE,260*TILE],[19*TILE,270*TILE]];
+const roadY=287*TILE;
+let joy={x:0,y:0,active:false,id:null},last=performance.now(),near=null,actionBusy=false;
+
+// Grass lifecycle: bare -> short -> tall -> overgrown, seven game days per stage.
+const GRASS_STAGE_DAYS=7, STAGE_MINUTES=GRASS_STAGE_DAYS*1440;
+const GRASS={BARE:0,SHORT:1,TALL:2,OVERGROWN:3};
+const grassKey=(tx,ty)=>tx+','+ty;
+function pointInRect(x,y,r,pad=0){return x>=r.x-pad&&x<=r.x+r.w+pad&&y>=r.y-pad&&y<=r.y+r.h+pad;}
+function nearWell(x,y,pad=2*TILE){return Math.hypot(x-well.x,y-well.y)<=well.r+pad;}
+function inRoad(x,y,pad=0){return y>=roadY-pad;}
+function inCircleDrive(x,y,pad=0){return Math.hypot(x-parking.cx,y-parking.cy)<=parking.r+pad;}
+function distPointToSegment(px,py,x1,y1,x2,y2){const vx=x2-x1,vy=y2-y1,wx=px-x1,wy=py-y1,c1=vx*wx+vy*wy;if(c1<=0)return Math.hypot(px-x1,py-y1);const c2=vx*vx+vy*vy;if(c2<=c1)return Math.hypot(px-x2,py-y2);const b=c1/c2,bx=x1+b*vx,by=y1+b*vy;return Math.hypot(px-bx,py-by);}
+function inDriveway(x,y,pad=0){const limit=drivewayWidth/2+pad;for(let i=0;i<drivewayPoints.length-1;i++){const a=drivewayPoints[i],b=drivewayPoints[i+1];if(distPointToSegment(x,y,a[0],a[1],b[0],b[1])<=limit)return true;}return false;}
+function grassEligible(tx,ty){const x=tx*TILE+TILE/2,y=ty*TILE+TILE/2;if(pointInRect(x,y,cabin,TILE*.5)||pointInRect(x,y,barn,TILE*.5)||nearWell(x,y,TILE*.5)||inRoad(x,y,TILE*.5)||inDriveway(x,y,TILE*.5)||inCircleDrive(x,y,TILE*.5)||pointInRect(x,y,startArea,0))return false;return true;}
+function gameTotalMinutes(){return state.gameDay*1440+state.gameMinutes;}
+function hash01(tx,ty,salt=0){let n=(Math.imul(tx+1,374761393)^Math.imul(ty+1,668265263)^Math.imul(salt+1,2246822519))>>>0;n=Math.imul(n^(n>>>13),1274126177)>>>0;return ((n^(n>>>16))>>>0)/4294967296;}
+function rollOvergrownSpawn(tx,ty,initial=false){const k=grassKey(tx,ty);if(state.env.has(k)||!grassEligible(tx,ty))return;let type=null;if(hash01(tx,ty,11)<.50)type='weed';else if(hash01(tx,ty,23)<.20)type='tree';else if(hash01(tx,ty,37)<.15)type='rock';if(!type)return;const born=gameTotalMinutes();if(type==='tree')state.env.set(k,{type,born,initial,treeStage:initial?3:0});else state.env.set(k,{type,born});}
+function grassRecord(tx,ty){const k=grassKey(tx,ty);return state.grass.get(k)||{stage:GRASS.OVERGROWN,since:-Infinity};}
+function setGrassStage(tx,ty,stage){const k=grassKey(tx,ty);state.grass.set(k,{stage,since:gameTotalMinutes()});if(stage!==GRASS.OVERGROWN)state.env.delete(k);else rollOvergrownSpawn(tx,ty,false);}
+function updateGrassGrowth(){const now=gameTotalMinutes();for(const [k,g] of state.grass){if(g.stage>=GRASS.OVERGROWN)continue;const elapsed=now-g.since;if(elapsed<STAGE_MINUTES)continue;const steps=Math.floor(elapsed/STAGE_MINUTES);const ns=Math.min(GRASS.OVERGROWN,g.stage+steps);g.stage=ns;g.since+=steps*STAGE_MINUTES;if(ns===GRASS.OVERGROWN){const [tx,ty]=k.split(',').map(Number);rollOvergrownSpawn(tx,ty,false);}}}
+// Existing eligible overgrown grass receives the agreed one-time sequential spawn roll at game start.
+for(let ty=0;ty<295;ty++)for(let tx=0;tx<295;tx++)if(grassEligible(tx,ty))rollOvergrownSpawn(tx,ty,true);
+
+function resize(){canvas.width=Math.floor(innerWidth*devicePixelRatio);canvas.height=Math.floor(innerHeight*devicePixelRatio);canvas.style.width=innerWidth+'px';canvas.style.height=innerHeight+'px';ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0)}
+addEventListener('resize',resize);resize();
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),dist=(a,b,c,d)=>Math.hypot(a-c,b-d);
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';clearTimeout(t._timer);t._timer=setTimeout(()=>t.style.display='none',1700)}
+
+
+const PLAYER_R=TILE*.34;
+function circleRectHit(cx,cy,cr,r){
+  const nx=clamp(cx,r.x,r.x+r.w),ny=clamp(cy,r.y,r.y+r.h);
+  return Math.hypot(cx-nx,cy-ny)<cr;
+}
+function wallRectsForBuilding(b,type){
+  const t=TILE;
+  if(type==='cabin'){
+    const doorX1=b.x+8*TILE,doorX2=b.x+12*TILE;
+    return [
+      {x:b.x,y:b.y,w:b.w,h:t},
+      {x:b.x,y:b.y,w:t,h:b.h},
+      {x:b.x+b.w-t,y:b.y,w:t,h:b.h},
+      {x:b.x,y:b.y+b.h-t,w:doorX1-b.x,h:t},
+      {x:doorX2,y:b.y+b.h-t,w:b.x+b.w-doorX2,h:t}
+    ];
+  }
+  const doorY1=b.y+6*TILE,doorY2=b.y+14*TILE;
+  return [
+    {x:b.x,y:b.y,w:b.w,h:t},
+    {x:b.x,y:b.y+b.h-t,w:b.w,h:t},
+    {x:b.x+b.w-t,y:b.y,w:t,h:b.h},
+    {x:b.x,y:b.y,w:t,h:doorY1-b.y},
+    {x:b.x,y:doorY2,w:t,h:b.y+b.h-doorY2}
+  ];
+}
+function cabinDoorClosedRect(){return {x:cabin.x+8*TILE,y:cabin.y+cabin.h-TILE,w:4*TILE,h:TILE};}
+function cabinDoorOpenRect(){return {x:cabin.x+8*TILE,y:cabin.y+cabin.h-4*TILE,w:TILE*.28,h:4*TILE};}
+function barnDoorClosedRect(){return {x:barn.x,y:barn.y+6*TILE,w:TILE,h:8*TILE};}
+function barnDoorOpenRects(){return [
+  {x:barn.x,y:barn.y+6*TILE,w:4*TILE,h:TILE*.28},
+  {x:barn.x,y:barn.y+14*TILE-TILE*.28,w:4*TILE,h:TILE*.28}
+];}
+function truckOpenDoorRect(){return {x:truck.x+truck.w*.32,y:truck.y-2.2*TILE,w:TILE*.28,h:2.2*TILE};}
+function cabinDoorPoint(){return {x:cabin.x+10*TILE,y:cabin.y+cabin.h};}
+function barnDoorPoint(){return {x:barn.x,y:barn.y+10*TILE};}
+function isBlocked(x,y){
+  if(x<PLAYER_R||y<PLAYER_R||x>world.w-PLAYER_R||y>world.h-PLAYER_R)return true;
+  for(const w of wallRectsForBuilding(cabin,'cabin'))if(circleRectHit(x,y,PLAYER_R,w))return true;
+  for(const w of wallRectsForBuilding(barn,'barn'))if(circleRectHit(x,y,PLAYER_R,w))return true;
+  const cDoor=state.doors.cabin?cabinDoorOpenRect():cabinDoorClosedRect();
+  if(circleRectHit(x,y,PLAYER_R,cDoor))return true;
+  if(!state.doors.barn){if(circleRectHit(x,y,PLAYER_R,barnDoorClosedRect()))return true;}
+  else for(const d of barnDoorOpenRects())if(circleRectHit(x,y,PLAYER_R,d))return true;
+  if(circleRectHit(x,y,PLAYER_R,truck))return true;
+  if(state.doors.truck&&circleRectHit(x,y,PLAYER_R,truckOpenDoorRect()))return true;
+  if(Math.hypot(x-well.x,y-well.y)<PLAYER_R+well.r)return true;
+  if(Math.hypot(x-mailbox.x,y-mailbox.y)<PLAYER_R+TILE*.35)return true;
+  const tx=Math.floor(x/TILE),ty=Math.floor(y/TILE);
+  for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++){const k=grassKey(tx+ox,ty+oy),obj=state.env.get(k);if(!obj)continue;const c=tileCenter(tx+ox,ty+oy);if(obj.type==='rock'&&Math.hypot(x-c.x,y-c.y)<PLAYER_R+TILE*.38)return true;if(obj.type==='tree'){const rr=[TILE*.20,TILE*.28,TILE*.34,TILE*.40][treeStage(obj)];if(Math.hypot(x-c.x,y-c.y)<PLAYER_R+rr)return true;}}
+  for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++){const k=grassKey(tx+ox,ty+oy);if(state.stumps.has(k)){const c=tileCenter(tx+ox,ty+oy);if(Math.hypot(x-c.x,y-c.y)<PLAYER_R+TILE*.32)return true;}}
+  return false;
+}
+function movePlayer(dx,dy){
+  const nx=player.x+dx;
+  if(!isBlocked(nx,player.y))player.x=nx;
+  const ny=player.y+dy;
+  if(!isBlocked(player.x,ny))player.y=ny;
+}
+function truckDoorPoint(){return {x:truck.x+truck.w*.52,y:truck.y-PLAYER_R-TILE*.22};}
+function canCloseDoor(rect){return !circleRectHit(player.x,player.y,PLAYER_R,rect);}
+function toggleCabinDoor(){
+  if(state.doors.cabin){
+    const r=cabinDoorClosedRect(); if(!canCloseDoor(r)){toast('Move clear of the cabin doorway');return;}
+    state.doors.cabin=false;toast('Cabin door closed');
+  }else{state.doors.cabin=true;toast('Cabin door opened');}
+}
+function toggleBarnDoor(){
+  if(state.doors.barn){
+    const r=barnDoorClosedRect(); if(!canCloseDoor(r)){toast('Move clear of the barn doorway');return;}
+    state.doors.barn=false;toast('Pole barn door closed');
+  }else{state.doors.barn=true;toast('Pole barn door opened');}
+}
+function toggleTruckDoor(){
+  state.doors.truck=!state.doors.truck;
+  toast(state.doors.truck?'F-250 door opened':'F-250 door closed');
+}
+function enterTruck(){
+  if(state.inVehicle)return;
+  if(!state.doors.truck){toast('Open the F-250 door first');return;}
+  state.inVehicle=true;state.mowerRunning=false;
+  joy.x=joy.y=0;
+  closePanels();document.getElementById('truckPanel').style.display='block';
+  toast('Entered F-250');
+}
+function findTruckExitPoint(){
+  const candidates=[
+    {x:truck.x+truck.w*.52,y:truck.y-1.25*TILE},
+    {x:truck.x-1.25*TILE,y:truck.y+truck.h*.5},
+    {x:truck.x+truck.w+1.25*TILE,y:truck.y+truck.h*.5},
+    {x:truck.x+truck.w*.52,y:truck.y+truck.h+1.25*TILE}
+  ];
+  for(const c of candidates)if(!isBlocked(c.x,c.y))return c;
+  return {x:truck.x+truck.w*.52,y:truck.y-1.75*TILE};
+}
+function exitTruck(){
+  if(!state.inVehicle)return;
+  const d=findTruckExitPoint();
+  state.inVehicle=false;
+  closePanels();
+  player.x=d.x;player.y=d.y;
+  joy.x=joy.y=0;
+  const knob=document.getElementById('stickKnob');if(knob)knob.style.transform='translate(0,0)';
+  toast('Exited F-250');
+}
+
+const START_YEAR=2026,START_MONTH=2,START_DAY=14;
+const SEASON_DATES={
+  2026:{spring:[3,20],summer:[6,21],fall:[9,22],winter:[12,21]}
+};
+function seasonDatesForYear(y){
+  return SEASON_DATES[y] || {spring:[3,20],summer:[6,21],fall:[9,22],winter:[12,21]};
+}
+function currentDate(){
+  return new Date(START_YEAR,START_MONTH-1,START_DAY+state.gameDay);
+}
+function seasonInfo(d){
+  const y=d.getFullYear(), dates=seasonDatesForYear(y), nextDates=seasonDatesForYear(y+1);
+  const spring=new Date(y,dates.spring[0]-1,dates.spring[1]);
+  const summer=new Date(y,dates.summer[0]-1,dates.summer[1]);
+  const fall=new Date(y,dates.fall[0]-1,dates.fall[1]);
+  const winter=new Date(y,dates.winter[0]-1,dates.winter[1]);
+  let season,nextName,nextDate;
+  if(d>=winter){
+    season='WINTER'; nextName='SPRING';
+    nextDate=new Date(y+1,nextDates.spring[0]-1,nextDates.spring[1]);
+  }else if(d>=fall){
+    season='FALL'; nextName='WINTER'; nextDate=winter;
+  }else if(d>=summer){
+    season='SUMMER'; nextName='FALL'; nextDate=fall;
+  }else if(d>=spring){
+    season='SPRING'; nextName='SUMMER'; nextDate=summer;
+  }else{
+    season='WINTER'; nextName='SPRING'; nextDate=spring;
+  }
+  const msPerDay=24*60*60*1000;
+  return {season,nextName,daysLeft:Math.ceil((nextDate-d)/msPerDay)};
+}
+function formatClock(){
+  const mins=((state.gameMinutes%1440)+1440)%1440;
+  let h=Math.floor(mins/60),m=Math.floor(mins%60);
+  const ap=h>=12?'PM':'AM';let hh=h%12;if(hh===0)hh=12;
+  return `${hh}:${String(m).padStart(2,'0')} ${ap}`;
+}
+function energyFromAwake(h){
+  if(h<=0)return 100;
+  if(h<=16)return 100-(40/16)*h;
+  if(h<=20)return 60-5*(h-16);
+  if(h<=24)return 40-5*(h-20);
+  if(h<28)return 20-5*(h-24);
+  return 0;
+}
+function updateHud(){
+  const d=currentDate(),s=seasonInfo(d);
+  const mon=d.toLocaleString('en-US',{month:'short'}).toUpperCase();
+  document.querySelector('#hud > div:first-child').innerHTML=
+    `${mon} ${d.getDate()} · ${formatClock()}<br>${s.season} · ${s.daysLeft} DAYS TO ${s.nextName}`;
+  document.getElementById('rightHud').innerHTML=`$${state.money.toLocaleString()}<br>Energy ${Math.round(state.energy)}%`;
+}
+function addAwakeHours(hours){
+  state.awakeHours+=hours;
+  state.energy=energyFromAwake(state.awakeHours);
+  if(state.awakeHours>=28){
+    state.awakeHours=0;
+    state.energy=100;
+    toast('You passed out from exhaustion');
+  }
+}
+function normalizeGameTime(){
+  while(state.gameMinutes>=1440){state.gameMinutes-=1440;state.gameDay++}
+  while(state.gameMinutes<0){state.gameMinutes+=1440;state.gameDay--}
+}
+function advanceHours(hours){
+  state.gameMinutes+=hours*60;
+  normalizeGameTime();
+  addAwakeHours(hours);
+  updateHud();
+}
+function clockTick(now){
+  const realSeconds=Math.max(0,(now-state.lastClockTick)/1000);
+  state.lastClockTick=now;
+  const gameHours=realSeconds/300; // 1 game day = 2 real hours.
+  state.gameMinutes+=gameHours*60;
+  normalizeGameTime();
+  addAwakeHours(gameHours);
+}
+function sleepHours(hours,efficiency=.75){
+  state.gameMinutes+=hours*60;
+  normalizeGameTime();
+  state.energy=Math.min(100,state.energy+12.5*hours*efficiency);
+  // Approximate awake counter from recovered energy until full sleep UI is implemented.
+  if(state.energy>=100)state.awakeHours=0;
+  updateHud();
+}
+
+function moneyHud(){updateHud()}
+function closePanels(){document.querySelectorAll('.panel').forEach(p=>p.style.display='none')}
+function openTown(){closePanels();document.getElementById('townPanel').style.display='block'}
+function driveToTown(){advanceHours(1);closePanels();document.getElementById('townPanel').style.display='block';toast('1 hour drive to town')}
+function openHardware(){closePanels();document.getElementById('hardwarePanel').style.display='block';updateShop()}
+function updateShop(){document.getElementById('shopCash').textContent=`Cash: $${state.money}`;document.getElementById('buyMower').textContent=state.owned.mower?'Owned':'Buy';document.getElementById('buyMower').disabled=state.owned.mower;document.getElementById('buyAxe').textContent=state.owned.axe?'Owned':'Buy';document.getElementById('buyAxe').disabled=state.owned.axe}
+function buyTool(tool,price){if(state.owned[tool])return;if(state.money<price){toast('Not enough cash');return}state.money-=price;state.owned[tool]=true;moneyHud();updateShop();updateToolButtons();toast(tool==='mower'?'Lawn mower purchased':'Hand axe purchased')}
+function updateToolButtons(){const m=document.getElementById('mowerBtn'),a=document.getElementById('axeBtn');m.style.display=state.owned.mower?'block':'none';a.style.display=state.owned.axe?'block':'none';m.classList.toggle('active',state.equipped==='mower');a.classList.toggle('active',state.equipped==='axe')}
+function equip(tool){if(!state.owned[tool])return;if(state.equipped===tool){state.equipped=null;state.mowerRunning=false}else{state.equipped=tool;state.mowerRunning=false}updateToolButtons();toast(state.equipped?`${tool==='mower'?'Mower':'Axe'} equipped`:'Hands empty')}
+document.getElementById('mowerBtn').onclick=()=>equip('mower');document.getElementById('axeBtn').onclick=()=>equip('axe');
+
+function playerTile(){return {tx:Math.floor(player.x/TILE),ty:Math.floor(player.y/TILE)};}
+function frontTile(){const fx=player.x+player.facing.x*TILE,fy=player.y+player.facing.y*TILE;return {tx:Math.floor(fx/TILE),ty:Math.floor(fy/TILE)};}
+function tileCenter(tx,ty){return {x:tx*TILE+TILE/2,y:ty*TILE+TILE/2};}
+function cutFrontTile(){const f=frontTile();if(f.tx<0||f.ty<0||f.tx>=295||f.ty>=295||!grassEligible(f.tx,f.ty))return;const k=grassKey(f.tx,f.ty),obj=state.env.get(k);if(obj&&obj.type!=='weed')return;state.env.delete(k);setGrassStage(f.tx,f.ty,GRASS.SHORT);}
+function treeInFront(){const f=frontTile(),obj=state.env.get(grassKey(f.tx,f.ty));if(!obj||obj.type!=='tree')return null;const c=tileCenter(f.tx,f.ty);return {id:grassKey(f.tx,f.ty),x:c.x,y:c.y,r:TILE*.42,obj,tx:f.tx,ty:f.ty};}
+function chopTree(tree){if(actionBusy)return;actionBusy=true;toast('Chopping tree...');setTimeout(()=>{const k=grassKey(tree.tx,tree.ty);state.env.delete(k);state.stumps.add(k);actionBusy=false;toast('Tree felled — stump remains')},4000)}
+function treeStage(obj){if(obj.initial)return 3;return Math.min(3,Math.floor((gameTotalMinutes()-obj.born)/(7*1440)));}
+function drawEnvObject(tx,ty,obj){const c=tileCenter(tx,ty),x=c.x,y=c.y;if(obj.type==='weed'){ctx.strokeStyle='#446b2b';ctx.lineWidth=1.5;for(let i=-1;i<=1;i++){ctx.beginPath();ctx.moveTo(x+i*3,y+5);ctx.lineTo(x+i*2,y-5-(i===0?3:0));ctx.stroke();}return;}if(obj.type==='rock'){ctx.fillStyle='#6f7471';ctx.beginPath();ctx.moveTo(x-6,y+5);ctx.lineTo(x-5,y-3);ctx.lineTo(x+1,y-7);ctx.lineTo(x+7,y-2);ctx.lineTo(x+6,y+5);ctx.closePath();ctx.fill();ctx.strokeStyle='#535754';ctx.stroke();return;}if(obj.type==='tree'){const st=treeStage(obj),r=[3.5,5.5,7.5,10][st];ctx.fillStyle='#4d3324';ctx.fillRect(x-1.5,y-1,3,5+st);ctx.fillStyle=['#6f913d','#4f7b35','#35622f','#254c29'][st];ctx.beginPath();ctx.arc(x,y-4-st,r,0,Math.PI*2);ctx.fill();}}
+function drawGrassTile(tx,ty,stage){const x=tx*TILE,y=ty*TILE;if(stage===GRASS.BARE){ctx.fillStyle='#776046';ctx.fillRect(x,y,TILE,TILE);return;}if(stage===GRASS.SHORT){ctx.fillStyle='#91ad62';ctx.fillRect(x,y,TILE,TILE);ctx.strokeStyle='rgba(73,116,48,.45)';ctx.lineWidth=1;for(let i=3;i<TILE;i+=5){ctx.beginPath();ctx.moveTo(x+i,y+TILE-3);ctx.lineTo(x+i+1,y+TILE-6);ctx.stroke();}return;}if(stage===GRASS.TALL){ctx.fillStyle='#78964f';ctx.fillRect(x,y,TILE,TILE);ctx.strokeStyle='rgba(50,92,39,.70)';for(let i=2;i<TILE;i+=4){ctx.beginPath();ctx.moveTo(x+i,y+TILE-2);ctx.lineTo(x+i-2,y+4);ctx.stroke();}return;}ctx.fillStyle='#667f3f';ctx.fillRect(x,y,TILE,TILE);ctx.strokeStyle='rgba(43,77,34,.85)';ctx.lineWidth=1;for(let i=1;i<TILE;i+=3){ctx.beginPath();ctx.moveTo(x+i,y+TILE);ctx.lineTo(x+i+((i%2)?2:-2),y+2+(i%5));ctx.stroke();}}
+
+function draw(){
+ const vw=innerWidth,vh=innerHeight,camX=clamp(player.x-vw/2,0,world.w-vw),camY=clamp(player.y-vh/2,0,world.h-vh);
+ ctx.clearRect(0,0,vw,vh);ctx.save();ctx.translate(-camX,-camY);
+ ctx.fillStyle='#78964f';ctx.fillRect(0,0,world.w,world.h);
+ const tx0=Math.max(0,Math.floor(camX/TILE)-1),tx1=Math.min(294,Math.ceil((camX+vw)/TILE)+1),ty0=Math.max(0,Math.floor(camY/TILE)-1),ty1=Math.min(294,Math.ceil((camY+vh)/TILE)+1);
+ for(let ty=ty0;ty<=ty1;ty++)for(let tx=tx0;tx<=tx1;tx++){if(!grassEligible(tx,ty))continue;const g=grassRecord(tx,ty);drawGrassTile(tx,ty,g.stage);}
+ for(let ty=ty0;ty<=ty1;ty++)for(let tx=tx0;tx<=tx1;tx++){const k=grassKey(tx,ty),obj=state.env.get(k);if(obj)drawEnvObject(tx,ty,obj);if(state.stumps.has(k)){const c=tileCenter(tx,ty);ctx.fillStyle='#5b3b25';ctx.beginPath();ctx.arc(c.x,c.y,5,0,Math.PI*2);ctx.fill();}}
+ ctx.fillStyle='#4a4a48';ctx.fillRect(0,roadY,world.w,80);
+ ctx.fillStyle='#9f9575';ctx.fillRect(startArea.x,startArea.y,startArea.w,startArea.h);
+ ctx.strokeStyle='#8c835f';ctx.lineWidth=drivewayWidth;ctx.lineCap='butt';ctx.lineJoin='round';ctx.beginPath();ctx.moveTo(drivewayPoints[0][0],drivewayPoints[0][1]);for(let i=1;i<drivewayPoints.length;i++)ctx.lineTo(drivewayPoints[i][0],drivewayPoints[i][1]);ctx.stroke();ctx.lineCap='butt';ctx.lineJoin='miter';
+ ctx.fillStyle='#8c835f';ctx.beginPath();ctx.arc(parking.cx,parking.cy,parking.r,0,Math.PI*2);ctx.fill();
+ // Cabin interior + solid 1-tile walls with a 4-ft south-facing doorway.
+ ctx.fillStyle='#9a795e';ctx.fillRect(cabin.x+TILE,cabin.y+TILE,cabin.w-2*TILE,cabin.h-2*TILE);
+ ctx.fillStyle='#3a2d22';for(const w of wallRectsForBuilding(cabin,'cabin'))ctx.fillRect(w.x,w.y,w.w,w.h);
+ // Cabin door is a physical collision object and visibly swings inward.
+ ctx.fillStyle='#c6a47d';const cdr=state.doors.cabin?cabinDoorOpenRect():cabinDoorClosedRect();ctx.fillRect(cdr.x,cdr.y,cdr.w,cdr.h);
+ // Barn interior + solid 1-tile walls with an 8-ft west-facing doorway.
+ ctx.fillStyle='#8d8065';ctx.fillRect(barn.x+TILE,barn.y+TILE,barn.w-2*TILE,barn.h-2*TILE);
+ ctx.fillStyle='#55585a';for(const w of wallRectsForBuilding(barn,'barn'))ctx.fillRect(w.x,w.y,w.w,w.h);
+ ctx.fillStyle='#b9b9b9';if(state.doors.barn){for(const d of barnDoorOpenRects())ctx.fillRect(d.x,d.y,d.w,d.h)}else{const bdr=barnDoorClosedRect();ctx.fillRect(bdr.x,bdr.y,bdr.w,bdr.h)}
+ ctx.fillStyle='#b8c7ce';ctx.beginPath();ctx.arc(well.x,well.y,well.r,0,Math.PI*2);ctx.fill();
+ // Full F-250 body is always rendered; the door is an additional movable solid object, not a replacement for the vehicle.
+ ctx.fillStyle='#f5f1df';ctx.fillRect(truck.x,truck.y,truck.w,truck.h);
+ ctx.strokeStyle='#4b4b4b';ctx.lineWidth=2;ctx.strokeRect(truck.x,truck.y,truck.w,truck.h);
+ // Cab/window and bed separation keep the truck visibly recognizable from the top-down view.
+ ctx.fillStyle='#a9c2cc';ctx.fillRect(truck.x+truck.w*.18,truck.y+truck.h*.18,truck.w*.30,truck.h*.64);
+ ctx.strokeStyle='#666';ctx.beginPath();ctx.moveTo(truck.x+truck.w*.54,truck.y);ctx.lineTo(truck.x+truck.w*.54,truck.y+truck.h);ctx.stroke();
+ // Four dark wheel blocks remain visible around the body edges.
+ ctx.fillStyle='#252525';
+ ctx.fillRect(truck.x+truck.w*.10,truck.y-TILE*.12,truck.w*.16,TILE*.18);
+ ctx.fillRect(truck.x+truck.w*.70,truck.y-TILE*.12,truck.w*.16,TILE*.18);
+ ctx.fillRect(truck.x+truck.w*.10,truck.y+truck.h-TILE*.06,truck.w*.16,TILE*.18);
+ ctx.fillRect(truck.x+truck.w*.70,truck.y+truck.h-TILE*.06,truck.w*.16,TILE*.18);
+ const td=truckDoorPoint();ctx.strokeStyle='#777';ctx.lineWidth=3;ctx.beginPath();if(state.doors.truck){ctx.moveTo(truck.x+truck.w*.32,truck.y);ctx.lineTo(truck.x+truck.w*.32,truck.y-2.2*TILE)}else{ctx.moveTo(truck.x+truck.w*.32,truck.y);ctx.lineTo(truck.x+truck.w*.70,truck.y)}ctx.stroke();
+ ctx.fillStyle='#3e3e3e';ctx.fillRect(mailbox.x-2,mailbox.y,4,18);ctx.fillStyle='#d7d7d7';ctx.fillRect(mailbox.x-10,mailbox.y-12,22,12);
+ // Player occupies one tile logically, but is drawn smaller inside it.
+ const playerW=TILE*.65,playerH=TILE*.80;
+ ctx.fillStyle='#2b4c8a';
+ if(!state.inVehicle)ctx.fillRect(player.x-playerW/2,player.y-playerH/2,playerW,playerH);
+
+ // Small facing marker
+ ctx.strokeStyle='#ffffff';ctx.lineWidth=2;
+ if(!state.inVehicle){ctx.beginPath();ctx.moveTo(player.x,player.y);ctx.lineTo(player.x+player.facing.x*TILE*.48,player.y+player.facing.y*TILE*.48);ctx.stroke();}
+
+ // Tool is drawn smaller than the tile, while its effect still applies to the full front tile.
+ const ft=frontTile(),fc=tileCenter(ft.tx,ft.ty);
+ if(!state.inVehicle&&state.equipped==='mower'){
+   const ang=Math.atan2(player.facing.y,player.facing.x);ctx.save();ctx.translate(fc.x,fc.y);ctx.rotate(ang);ctx.strokeStyle=state.mowerRunning?'#e5c64f':'#c7c7c7';ctx.lineWidth=3;ctx.strokeRect(-TILE*.36,-TILE*.28,TILE*.72,TILE*.56);ctx.restore();
+ }
+ if(!state.inVehicle&&state.equipped==='axe'){
+   const ang=Math.atan2(player.facing.y,player.facing.x);
+   ctx.strokeStyle='#d0d0d0';ctx.lineWidth=3;
+   ctx.beginPath();
+   ctx.moveTo(fc.x-Math.cos(ang)*TILE*.20,fc.y-Math.sin(ang)*TILE*.20);
+   ctx.lineTo(fc.x+Math.cos(ang)*TILE*.20,fc.y+Math.sin(ang)*TILE*.20);
+   ctx.stroke();
+ }
+ ctx.restore();
+
+ const p=document.getElementById('prompt');near=null;
+ if(dist(player.x,player.y,mailbox.x,mailbox.y)<46){near='mailbox';p.textContent='Open mailbox'}
+ else if(!state.inVehicle&&dist(player.x,player.y,cabinDoorPoint().x,cabinDoorPoint().y)<2.2*TILE){near='cabinDoor';p.textContent=state.doors.cabin?'Close cabin door':'Open cabin door'}
+ else if(!state.inVehicle&&dist(player.x,player.y,barnDoorPoint().x,barnDoorPoint().y)<2.5*TILE){near='barnDoor';p.textContent=state.doors.barn?'Close pole barn door':'Open pole barn door'}
+ else if(!state.inVehicle&&dist(player.x,player.y,truckDoorPoint().x,truckDoorPoint().y)<2.2*TILE){near='truck';p.textContent=state.doors.truck?'Enter F-250':'Open F-250 door'}
+ else if(!state.inVehicle&&state.equipped==='axe'&&treeInFront()){near='tree';p.textContent='Chop tree (slow)'}
+ else if(!state.inVehicle&&state.equipped==='mower'){near='mower';p.textContent=state.mowerRunning?'Mower ON — ACT to stop':'ACT to start mower'}
+ p.style.display=near?'block':'none';
+}
+function update(dt){
+ clockTick(performance.now());
+ updateGrassGrowth();
+ if(!actionBusy&&!state.inVehicle){
+   const len=Math.hypot(joy.x,joy.y);
+   if(len>0){
+     player.facing={x:joy.x/len,y:joy.y/len};
+     const fatigueFactor=state.energy<=40?0.5:1;
+     const dx=(joy.x/Math.max(1,len))*player.speed*fatigueFactor*dt;
+     const dy=(joy.y/Math.max(1,len))*player.speed*fatigueFactor*dt;
+     movePlayer(dx,dy);
+   }
+ }
+ player.x=clamp(player.x,TILE/2,world.w-TILE/2);
+ player.y=clamp(player.y,TILE/2,world.h-TILE/2);
+ if(!state.inVehicle&&state.equipped==='mower'&&state.mowerRunning&&!actionBusy)cutFrontTile();
+ updateHud();
+}
+function loop(t){const dt=Math.min(.04,(t-last)/1000);last=t;update(dt);draw();requestAnimationFrame(loop)}requestAnimationFrame(loop);
+
+const base=document.getElementById('stickBase'),knob=document.getElementById('stickKnob');
+function setJoy(x,y){const r=base.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;let dx=x-cx,dy=y-cy;const max=34,m=Math.hypot(dx,dy);if(m>max){dx=dx/m*max;dy=dy/m*max}knob.style.transform=`translate(${dx}px,${dy}px)`;joy.x=dx/max;joy.y=dy/max}
+base.addEventListener('pointerdown',e=>{joy.active=true;joy.id=e.pointerId;base.setPointerCapture(e.pointerId);setJoy(e.clientX,e.clientY)});
+base.addEventListener('pointermove',e=>{if(joy.active&&e.pointerId===joy.id)setJoy(e.clientX,e.clientY)});
+function endJoy(e){if(e.pointerId!==joy.id)return;joy.active=false;joy.id=null;joy.x=joy.y=0;knob.style.transform='translate(0,0)'}
+base.addEventListener('pointerup',endJoy);base.addEventListener('pointercancel',endJoy);
+
+document.getElementById('actionBtn').onclick=()=>{
+ if(actionBusy)return;
+ if(state.inVehicle){exitTruck();return;}
+ if(near==='mailbox'){closePanels();document.getElementById('letterPanel').style.display='block'}
+ else if(near==='cabinDoor'){toggleCabinDoor()}
+ else if(near==='barnDoor'){toggleBarnDoor()}
+ else if(near==='truck'){if(state.doors.truck)enterTruck();else toggleTruckDoor()}
+ else if(near==='tree'&&state.equipped==='axe'){const t=treeInFront();if(t)chopTree(t)}
+ else if(near==='mower'&&state.equipped==='mower'){state.mowerRunning=!state.mowerRunning;toast(state.mowerRunning?'Mower started':'Mower stopped')}
+};
+updateHud();updateToolButtons();
+</script>
+</body>
+</html>
